@@ -1,0 +1,47 @@
+[tool.poetry]
+name = "gprmaxui"
+version = "0.1.0"
+description = ""
+authors = ["haruiz <henryruiz22@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.12"
+rich = "^13.3.5"
+pydantic = "^1.10.7"
+pyvista = "^0.39.1"
+pyside6 = "^6.5.0"
+pyvistaqt = "^0.10.0"
+cython = "^0.29.34"
+scipy = "^1.10.1"
+psutil = "^5.9.5"
+terminaltables = "^3.1.10"
+tqdm = "^4.65.0"
+xmltodict = "^0.13.0"
+opencv-python = "^4.7.0.72"
+more-itertools = "^9.1.0"
+h5py = "^3.8.0"
+
+
+[tool.poetry.group.dev.dependencies]
+mkdocs-material = "^9.1.13"
+mkdocs-glightbox = "^0.3.4"
+mkdocs-video = "^1.5.0"
+black = "^23.3.0"
+
+[tool.poetry.group.gpu]
+optional = true
+
+[tool.poetry.group.gpu.dependencies]
+pycuda = "^2022.2.2"
+
+
+[tool.poetry.group.mpi]
+optional = true
+
+[tool.poetry.group.mpi.dependencies]
+mpi4py = "^3.1.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,65 @@
+site_name: GPRMax UI
+repo_name: haruiz/gprmaxui
+repo_url: https://github.com/haruiz/gprmaxui
+docs_dir: mkdocs
+site_dir: docs
+nav:
+    - Home: index.md
+    - Tutorials:
+      - Getting Started: tutorials/getting_started.md
+extra_css:
+  - assets/css/custom.css
+theme:
+  palette:
+
+    # Palette toggle for light mode
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  features:
+    - tabs
+    - instant
+    - content.code.copy
+    - content.code.select
+  name: 'material'
+  font:
+    text: 'Roboto'
+    code: 'Roboto Mono'
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - footnotes
+  - admonition
+  - codehilite:
+      linenums: true
+  - pymdownx.arithmatex
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:pymdownx.emoji.twemoji
+      emoji_generator: !!python/name:pymdownx.emoji.to_svg
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.highlight:
+      linenums: true
+
+plugins:
+  - search
+  - glightbox
+  - mkdocs-video
