@@ -40,8 +40,6 @@ class TimeWindow(Command):
 
     twt: typing.Union[float, int]
 
-    class Config:
-        smart_union = True
 
 
 @CommandParser.register("title")

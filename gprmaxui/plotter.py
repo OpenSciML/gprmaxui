@@ -2,7 +2,6 @@ from pathlib import Path
 
 from PySide6.QtGui import QContextMenuEvent
 from PySide6.QtWidgets import (
-    QFrame,
     QVBoxLayout,
     QMenu,
     QFileDialog,

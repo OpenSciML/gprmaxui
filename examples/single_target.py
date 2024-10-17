@@ -50,7 +50,7 @@ if __name__ == "__main__":
         )
     )
 
-    model.run(n="auto", geometry=False, snapshots=False)
+    model.run(n="auto", geometry=False, snapshots=False, gpu=[0,1])
     model.plot_data()
     #model.plot_geometry()
     #model.plot_snapshot(trace_idx=60, iteration_idx=300)

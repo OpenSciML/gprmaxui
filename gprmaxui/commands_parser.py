@@ -3,85 +3,98 @@ from __future__ import annotations
 import typing
 from io import StringIO
 from pathlib import Path
-
-from pydantic import BaseModel
-from typing import Callable
+from typing import Callable, Dict, Any
 import logging
 import re
+from pydantic import BaseModel, create_model, Field
 
 logger = logging.getLogger("rich")
 
 
+def patch_model(model: BaseModel, **fields: Dict[str, Any]) -> BaseModel:
+    """
+    Dynamically create a new Pydantic model by extending an existing model with additional fields.
+
+    :param model: The base model to extend.
+    :param fields: Key-value pairs of fields to add to the model.
+    :return: A new Pydantic model with the additional fields.
+    """
+    new_model = create_model(
+        model.__name__,
+        **fields,
+        __base__=model
+    )
+    return new_model
+
+
 class BaseCommand(BaseModel):
     """
-    Abstract class for command
+    Abstract class representing a command.
     """
 
-    def dict(self, **kwargs):
+    def __call__(self, *args: Any, **kwargs: Any) -> None:
         """
-        Override dict method to exclude hidden fields
-        :param kwargs:
-        :return:
-        """
-        hidden_fields = set(
-            attribute_name
-            for attribute_name, model_field in self.__fields__.items()
-            if model_field.field_info.extra.get("hidden") is True
-        )
-        kwargs.setdefault("exclude", hidden_fields)
-        return super().dict(**kwargs)
+        Execute the command and print it.
 
-    def __call__(self, *args, **kwargs):
-        """
-        print the command
-        :param args:
-        :param kwargs:
-        :return:
+        :param args: Positional arguments for command execution.
+        :param kwargs: Keyword arguments for command execution.
         """
         self.print()
 
-    def print(self):
+    def print(self) -> None:
         """
-        print the command
-        :return:
+        Print the string representation of the command.
         """
         print(self)
 
 
 class Command(BaseCommand):
     """
-    Abstract class for command
+    Base class for individual commands.
     """
 
-    name: typing.Optional[str] = None
-
     @staticmethod
-    def _process_fied_value(field_value):
+    def _process_field_value(field_value: Any) -> str:
+        """
+        Process a field value for string representation.
+
+        :param field_value: The value to process.
+        :return: A string representation of the value.
+        """
         if isinstance(field_value, Path):
-            return '"' + field_value.as_posix() + '"'
+            return f'"{field_value.as_posix()}"'
         return str(field_value)
 
-    def __str__(self):
-        fields = self.dict()
+    def __str__(self) -> str:
+        """
+        Generate a string representation of the command, including its fields.
+
+        :return: A formatted string representing the command.
+        """
+        fields = self.model_dump(exclude_none=True)
         cmd_name = fields.pop("name")
-        return f"#{cmd_name}: {' '.join(map(Command._process_fied_value, fields.values()))}"
+        return f"#{cmd_name}: {' '.join(map(Command._process_field_value, fields.values()))}"
 
 
 class StackCommand(BaseCommand):
     """
-    Abstract class for multi command
+    Base class for commands that can contain multiple subcommands.
     """
 
-    def __str__(self):
-        fields = self.__fields__
+    def __str__(self) -> str:
+        """
+        Generate a string representation of the stack command, including its subcommands.
+
+        :return: A formatted string representing the stack command.
+        """
+        fields = self.model_fields
         with StringIO() as str_buffer:
             for field_name, field in fields.items():
                 field_value = getattr(self, field_name)
                 if isinstance(field_value, (Command, StackCommand)):
                     str_buffer.write(str(field_value))
                     str_buffer.write("\n")
-            out_str = str_buffer.getvalue()
-        out_str = out_str.strip()
+            out_str = str_buffer.getvalue().strip()
         return out_str
 
 
@@ -90,40 +103,50 @@ class CommandParser:
     A class to parse command line arguments and return a Command instance.
     """
 
-    commands_registry = {}
+    commands_registry: Dict[str, Command] = {}
 
     @classmethod
-    def register(cls, cmd_name) -> Callable:
+    def register(cls, cmd_name: str) -> Callable:
+        """
+        Register a command class under a specific command name.
+
+        :param cmd_name: The name under which the command will be registered.
+        :return: A decorator that wraps the command class.
+        """
         def wrapper(command_wrapped_class: Command) -> Callable:
             if cmd_name in cls.commands_registry:
                 logger.warning(
-                    f"A Command with name {cmd_name} is already registered. it will be override"
+                    f"A Command with name {cmd_name} is already registered; it will be overridden."
                 )
+            command_wrapped_class = patch_model(command_wrapped_class, name=(str, Field(default=cmd_name)))
             cls.commands_registry[cmd_name] = command_wrapped_class
-            # we need to set the default value of the name field to the command name
-            command_wrapped_class.__fields__["name"].default = cmd_name
             return command_wrapped_class
-
         return wrapper
 
     @classmethod
     def parse(cls, cmd_str: str) -> Command:
-        """Build a DataReader instance for the given extension.
-        ext: str  - The extension of the file to read.
-        kwargs: dict - The keyword arguments to pass to the DataReader constructor.
-        :rtype: DataReader - The DataReader instance.
+        """
+        Parse a command string and return an instance of the corresponding Command.
+
+        :param cmd_str: The command string to parse.
+        :return: An instance of the Command class corresponding to the parsed command.
+        :raises NotImplementedError: If the command name is not registered.
         """
         match = re.search(r"#(\w+):\s(.+)", cmd_str)
-        assert match is not None, f"Command string {cmd_str} is not valid"
+        assert match is not None, f"Command string '{cmd_str}' is not valid"
         cmd_name = match.group(1).lower()
         cmd_args = match.group(2).split()
+
         if cmd_name not in cls.commands_registry:
             raise NotImplementedError(f"{cmd_name} not supported")
+
         cmd_class = cls.commands_registry[cmd_name]
-        logger.debug(f"using {cmd_class.__name__} to parse command {cmd_name}")
-        # special case for title command
+        logger.debug(f"Using {cmd_class.__name__} to parse command '{cmd_name}'")
+
+        # Special case for title command
         if cmd_name == "title":
             cmd_args = [match.group(2)]
+
         cmd_fields = dict(zip(cmd_class.__fields__, [cmd_name] + cmd_args))
         cmd = cmd_class(**cmd_fields)
         return cmd

@@ -7,20 +7,33 @@ GprMax-UI provides a high-level API to run gprMax models along with a set of fun
 - [Python 3.10+](https://www.python.org/downloads/)
 - [gprMax](https://docs.gprmax.com/en/latest/)
 
+## Install Pycuda
+    
+```bash
+sudo apt install build-essential clang
+sudo apt install libstdc++-12-dev
+export CUDA_HOME=/usr/local/cuda
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+uv add pycuda --optional gpu
+```
+
+## Install gprMax
+
+```bash
+git clone https://github.com/gprMax/gprMax.git
+sudo apt install libgomp1
+sudo apt install libomp-dev
+python setup.py build
+python setup.py develop --no-deps
+```
+
 ## Installation gprMaxUI
 
 ```bash
 pip install gprmaxui
 ```
 
-## Install gprMax
-
-```bash
-git clone git@github.com:gprMax/gprMax.git
-cd gprMax
-python setup.py build
-python setup.py develop --no-deps
-```
 
 ## Build the documentation
 

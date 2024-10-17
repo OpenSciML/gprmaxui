@@ -97,7 +97,7 @@ if __name__ == "__main__":
     )
 
     model.plot_geometry()
-    model.run(n="auto", geometry=True, snapshots=True)
+    model.run(n="auto", geometry=True, snapshots=True, gpu=[0,1])
     model.plot_data()
 
     captures = []

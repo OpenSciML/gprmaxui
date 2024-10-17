@@ -37,7 +37,7 @@ class Material(Command):
     permeability: float = 0  # μ (permeability)
     magconductivity: float = 0  # σm (magnetic conductivity)
     id: str = None  # name of the material
-    color: str = Field(None, hidden=True)  # color of the material
+    color: str = Field(None, exclude=True)  # color of the material
 
 
 @CommandParser.register("box")
@@ -203,6 +203,3 @@ class SnapshotView(Command):
     dz: float
     t: typing.Union[float, int]
     filename: str = None
-
-    class Config:
-        smart_union = True
