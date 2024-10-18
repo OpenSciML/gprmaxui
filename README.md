@@ -52,8 +52,8 @@ mkdocs serve -a localhost:8000
 ## Usage
 
 ```Python
-from pathlib import Path
-from src.gprmaxui import *
+from gprmaxui.commands import *
+from gprmaxui import GprMaxModel
 
 # Create a GPRMax model
 model = GprMaxModel(
