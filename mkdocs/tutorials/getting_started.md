@@ -1,12 +1,12 @@
 
-GprMax is open-source software that simulates electromagnetic wave propagation. It solves Maxwell’s equations in 3D using the Finite-Difference Time-Domain (FDTD) method. Although it was designed initially for modeling Ground Penetrating Radar (GPR), it can also be used to model electromagnetic wave propagation for many other applications. GPRMax-UI is a python written on top of GprMax, which provides a high-level API for running simulations and visualizing the results.
 
+GprMax is open-source software that simulates electromagnetic wave propagation. It solves Maxwell’s equations in 3D using the Finite-Difference Time-Domain (FDTD) method. Although it was designed initially for modeling Ground Penetrating Radar (GPR), it can also be used to model electromagnetic wave propagation for many other applications.  GprMax-UI enhances this functionality by providing a high-level API for executing GprMax models, along with tools for visualization, analysis, and result interpretation.
 This tutorial will guide you through the basic steps of using GPRMaxUI to run a simulation and view the results. 
 
 We start by importing the necessary modules.
 
 ```Python
-from src.gprmaxui import *
+from gprmaxui import *
 ```
 We can then proceed to create our GprMaxModel using the following code snippet:
 ```Python
@@ -114,7 +114,7 @@ model.plot_snapshot(trace_idx=60, iteration_idx=300)
 We can use that function to create multiple snapshots at a given period of time using the following code snippet:
 
 ```Python
-from src.gprmaxui import make_images_grid
+from gprmaxui import make_images_grid
 
 captures = []
 trace_idx = 35

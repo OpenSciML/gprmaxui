@@ -1,25 +1,44 @@
 # GPR-MAX UI
 
-GprMax-UI provides a high-level API to run gprMax models along with a set of functions for visualization, analysis and interpreting the results. 
+![Library Logo](https://raw.githubusercontent.com//OpenSciML/gprmaxui/main/images/logo.png)
+
+GprMax is open-source software that simulates electromagnetic wave propagation. It solves Maxwell’s equations in 3D using the Finite-Difference Time-Domain (FDTD) method. Although it was designed initially for modeling Ground Penetrating Radar (GPR), it can also be used to model electromagnetic wave propagation for many other applications.  GprMax-UI enhances this functionality by providing a high-level API for executing GprMax models, along with tools for visualization, analysis, and result interpretation.
+
+The following video have been created using gprmaxui:
+
+[![Watch the video](https://img.youtube.com/vi/oKURUSD32Ts/hqdefault.jpg)](https://www.youtube.com/watch?v=oKURUSD32Ts&ab_channel=HenryRuiz)[![Watch the video](https://img.youtube.com/vi/8RjslPXEv0Y/hqdefault.jpg)](https://www.youtube.com/watch?v=8RjslPXEv0Y&ab_channel=HenryRuiz)
+
 
 ## Prerequisites
 
 - [Python 3.10+](https://www.python.org/downloads/)
 - [gprMax](https://docs.gprmax.com/en/latest/)
 
-## Installation gprMaxUI
-
+## Install Pycuda
+    
 ```bash
-pip install gprmaxui
+sudo apt install build-essential clang
+sudo apt install libstdc++-12-dev
+export CUDA_HOME=/usr/local/cuda
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+uv add pycuda --optional gpu
 ```
 
 ## Install gprMax
 
 ```bash
-git clone git@github.com:gprMax/gprMax.git
-cd gprMax
+git clone https://github.com/gprMax/gprMax.git
+sudo apt install libgomp1
+sudo apt install libomp-dev
 python setup.py build
 python setup.py develop --no-deps
+```
+
+## Installation gprMaxUI
+
+```bash
+pip install gprmaxui
 ```
 
 ## Build the documentation
