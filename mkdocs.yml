@@ -1,6 +1,6 @@
 site_name: GPRMax UI
 repo_name: haruiz/gprmaxui
-repo_url: https://github.com/haruiz/gprmaxui
+repo_url: https://github.com/OpenSciML/gprmaxui
 docs_dir: mkdocs
 site_dir: docs
 nav:
@@ -10,13 +10,12 @@ nav:
 extra_css:
   - assets/css/custom.css
 theme:
+  logo: assets/logo.png
   palette:
     scheme: 'slate'  # Default to dark mode
     toggle:
       icon: material/weather-sunny  # Light mode icon
       name: Switch to light mode
-
-
   features:
     - tabs
     - instant
