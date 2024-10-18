@@ -1,6 +1,6 @@
 # GPR-MAX UI
 
-![Library Logo](https://raw.githubusercontent.com//OpenSciML/gprmaxui/main/images/logo.png)
+![Library Logo](https://raw.githubusercontent.com/OpenSciML/gprmaxui/main/images/logo.png)
 
 GprMax is open-source software that simulates electromagnetic wave propagation. It solves Maxwell’s equations in 3D using the Finite-Difference Time-Domain (FDTD) method. Although it was designed initially for modeling Ground Penetrating Radar (GPR), it can also be used to model electromagnetic wave propagation for many other applications.  GprMax-UI enhances this functionality by providing a high-level API for executing GprMax models, along with tools for visualization, analysis, and result interpretation.
 

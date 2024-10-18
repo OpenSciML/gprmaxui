@@ -2,6 +2,8 @@
 
 GprMax-UI provides a high-level API to run gprMax models along with a set of functions for visualization, analysis and interpreting the results. 
 
+![Library Logo](https://raw.githubusercontent.com/OpenSciML/gprmaxui/main/images/logo.png)
+
 ## Prerequisites
 
 - [Python 3.10+](https://www.python.org/downloads/)
