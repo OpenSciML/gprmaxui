@@ -1,5 +1,7 @@
-from gprmaxui import *
+from gprmaxui.commands import *
+from gprmaxui import GprMaxModel
 from tqdm import tqdm
+import numpy as np
 
 
 def add_targets_cluster(

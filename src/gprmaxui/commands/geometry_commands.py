@@ -5,8 +5,8 @@ import typing
 
 from pydantic import Field, BaseModel
 
-from src.gprmaxui.commands_parser import CommandParser, Command
-from src.gprmaxui.domain_commands import DomainSize
+from gprmaxui.commands.commands_parser import CommandParser, Command
+from gprmaxui.commands.domain_commands import DomainSize
 
 
 class DomainPoint(BaseModel):

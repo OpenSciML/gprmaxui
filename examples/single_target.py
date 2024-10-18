@@ -1,4 +1,6 @@
-from gprmaxui import *
+from gprmaxui.commands import *
+from gprmaxui import GprMaxModel
+from gprmaxui.utils import make_images_grid
 
 if __name__ == "__main__":
     # Create a GPRMax model
@@ -51,21 +53,21 @@ if __name__ == "__main__":
 
     model.run(n="auto", geometry=False, snapshots=False, gpu=[0,1])
     model.plot_data()
-    #model.plot_geometry()
-    #model.plot_snapshot(trace_idx=60, iteration_idx=300)
-    # model.save_video("test.mp4", fps=25, figsize=(6, 10))
+    model.plot_geometry()
+    model.plot_snapshot(trace_idx=60, iteration_idx=300)
+    model.save_video("test.mp4", fps=25, figsize=(6, 10))
 
-    # data_dict = model.data()
-    # for rx_component, data in data_dict.items():
-    #     data_arr, dt = data
-    #     print(data_arr.shape)
+    data_dict = model.data()
+    for rx_component, data in data_dict.items():
+        data_arr, dt = data
+        print(data_arr.shape)
 
-    # captures = []
-    # for i in range(1, 500, 80):
-    #     snapshot_image = model.plot_snapshot(
-    #         trace_idx=35, iteration_idx=i, return_image=True
-    #     )
-    #     captures.append(snapshot_image)
-    # print(len(captures))
-    # output_image = make_images_grid(captures, num_cols=4)
-    # output_image.show()
+    captures = []
+    for i in range(1, 500, 80):
+        snapshot_image = model.plot_snapshot(
+            trace_idx=35, iteration_idx=i, return_image=True
+        )
+        captures.append(snapshot_image)
+    print(len(captures))
+    output_image = make_images_grid(captures, num_cols=4)
+    output_image.show()

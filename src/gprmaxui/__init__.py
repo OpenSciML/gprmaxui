@@ -1,9 +1,7 @@
-import logging
 from rich.logging import RichHandler
-from .geometry_commands import *
-from .domain_commands import *
-from .gprmax_model import *
+import logging
 
+from .gprmax_model import GprMaxModel
 
 FORMAT = "%(message)s"
 logging.basicConfig(

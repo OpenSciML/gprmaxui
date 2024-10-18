@@ -1,4 +1,6 @@
-from gprmaxui import *
+from gprmaxui.commands import *
+from gprmaxui import GprMaxModel
+from gprmaxui.utils import make_images_grid
 
 if __name__ == "__main__":
     # Create a GPRMax model

@@ -1,5 +1,5 @@
 site_name: GPRMax UI
-repo_name: haruiz/gprmaxui
+repo_name: OpenSciML/gprmaxui
 repo_url: https://github.com/OpenSciML/gprmaxui
 docs_dir: mkdocs
 site_dir: docs

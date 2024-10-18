@@ -4,7 +4,7 @@ from __future__ import annotations
 import typing
 from pathlib import Path
 
-from src.gprmaxui.commands_parser import CommandParser, Command
+from gprmaxui.commands.commands_parser import CommandParser, Command
 
 
 @CommandParser.register("domain")

@@ -1,5 +1,7 @@
-from src.gprmaxui import *
-
+from gprmaxui.commands import *
+from gprmaxui.utils import make_images_grid
+from gprmaxui import GprMaxModel
+import numpy as np
 
 def add_targets_cluster(
     n: int,

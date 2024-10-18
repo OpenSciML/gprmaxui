@@ -16,10 +16,8 @@ from gprMax.utilities import round_value
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from tqdm import tqdm
 
-from src.gprmaxui.domain_commands import *
-from src.gprmaxui.geometry_commands import *
+from gprmaxui.commands import *
 from src.gprmaxui.plotter import PlotterDialog
-from src.gprmaxui.sources_commands import *
 from src.gprmaxui.utils import (
     get_output_data,
     rmdir,

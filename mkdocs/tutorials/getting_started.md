@@ -6,7 +6,8 @@ This tutorial will guide you through the basic steps of using GPRMaxUI to run a 
 We start by importing the necessary modules.
 
 ```Python
-from gprmaxui import *
+from gprmaxui import GprMaxModel
+from gprmaxui.commands import *
 ```
 We can then proceed to create our GprMaxModel using the following code snippet:
 ```Python
@@ -114,7 +115,7 @@ model.plot_snapshot(trace_idx=60, iteration_idx=300)
 We can use that function to create multiple snapshots at a given period of time using the following code snippet:
 
 ```Python
-from gprmaxui import make_images_grid
+from gprmaxui.utils import make_images_grid
 
 captures = []
 trace_idx = 35

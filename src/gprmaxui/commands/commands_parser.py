@@ -124,7 +124,7 @@ class CommandParser:
         return wrapper
 
     @classmethod
-    def parse(cls, cmd_str: str) -> Command:
+    def parse(cls, cmd_str: str) -> Command | StackCommand  | None:
         """
         Parse a command string and return an instance of the corresponding Command.
 
@@ -147,6 +147,6 @@ class CommandParser:
         if cmd_name == "title":
             cmd_args = [match.group(2)]
 
-        cmd_fields = dict(zip(cmd_class.__fields__, [cmd_name] + cmd_args))
+        cmd_fields = dict(zip(cmd_class.model_fields, [cmd_name] + cmd_args))
         cmd = cmd_class(**cmd_fields)
         return cmd
