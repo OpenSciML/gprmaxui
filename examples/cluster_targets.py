@@ -42,7 +42,7 @@ def add_targets_cluster(
 if __name__ == "__main__":
     # Create a GPRMax model
     model = GprMaxModel(
-        title="B scan from a single target buried in a dielectric sand-space",
+        title="B scan from a cluster of targets buried in a dielectric half-space",
         output_folder=Path("output"),
         domain_size=DomainSize(x=0.3, y=0.2, z=0.002),
         domain_resolution=DomainResolution(dx=0.002, dy=0.002, dz=0.002),
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     model.register_materials(
         Material(id="half_space", permittivity=6, conductivity=0, permeability=1),
         Material(id="sand", permittivity=3.0, conductivity=0.01, permeability=1),
-        Material(id="potato", permittivity=1.0, conductivity=0.01, permeability=1),
+        Material(id="object", permittivity=1.0, conductivity=0.01, permeability=1),
     )
 
     # Register model sources
