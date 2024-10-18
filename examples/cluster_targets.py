@@ -1,5 +1,4 @@
-from gprmaxui import *
-from gprmaxui.utils import *
+from src.gprmaxui import *
 
 
 def add_targets_cluster(

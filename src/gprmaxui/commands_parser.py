@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import typing
+import logging
+import re
 from io import StringIO
 from pathlib import Path
 from typing import Callable, Dict, Any
-import logging
-import re
+
 from pydantic import BaseModel, create_model, Field
 
 logger = logging.getLogger("rich")
@@ -113,9 +113,9 @@ class CommandParser:
         :param cmd_name: The name under which the command will be registered.
         :return: A decorator that wraps the command class.
         """
-        def wrapper(command_wrapped_class: Command) -> Callable:
+        def wrapper(command_wrapped_class: Command) -> BaseModel:
             if cmd_name in cls.commands_registry:
-                logger.warning(
+                logger.debug(
                     f"A Command with name {cmd_name} is already registered; it will be overridden."
                 )
             command_wrapped_class = patch_model(command_wrapped_class, name=(str, Field(default=cmd_name)))

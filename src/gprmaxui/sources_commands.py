@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typing
 
-from gprmaxui.commands_parser import CommandParser, Command, StackCommand
+from src.gprmaxui.commands_parser import CommandParser, Command, StackCommand
 
 
 @CommandParser.register("waveform")

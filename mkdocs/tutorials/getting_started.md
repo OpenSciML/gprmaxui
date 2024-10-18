@@ -3,10 +3,10 @@ GprMax is open-source software that simulates electromagnetic wave propagation. 
 
 This tutorial will guide you through the basic steps of using GPRMaxUI to run a simulation and view the results. 
 
-We start by importing the necessary modules. 
+We start by importing the necessary modules.
 
 ```Python
-from gprmaxui import *
+from src.gprmaxui import *
 ```
 We can then proceed to create our GprMaxModel using the following code snippet:
 ```Python
@@ -114,7 +114,7 @@ model.plot_snapshot(trace_idx=60, iteration_idx=300)
 We can use that function to create multiple snapshots at a given period of time using the following code snippet:
 
 ```Python
-from gprmaxui.utils import make_images_grid
+from src.gprmaxui import make_images_grid
 
 captures = []
 trace_idx = 35

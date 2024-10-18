@@ -1,5 +1,4 @@
 from gprmaxui import *
-from gprmaxui.utils import *
 from tqdm import tqdm
 
 

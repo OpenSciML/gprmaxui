@@ -1,5 +1,4 @@
 from gprmaxui import *
-from gprmaxui.utils import *
 
 if __name__ == "__main__":
     # Create a GPRMax model
