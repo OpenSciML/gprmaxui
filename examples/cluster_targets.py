@@ -93,7 +93,7 @@ if __name__ == "__main__":
         n=6,
         cluster_domain=cluster_box,
         cluster_spacing=0.03,
-        targets_material="potato",
+        targets_material="object",
         targets_radius=(0.005, 0.02),
     )
 
