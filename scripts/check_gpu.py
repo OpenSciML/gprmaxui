@@ -1,6 +1,7 @@
 import pycuda
 import pycuda.driver as drv
 
+print("PyCUDA version")
 drv.init()
 print("CUDA device query (PyCUDA version) \n")
 print("Detected {} CUDA Capable device(s) \n".format(drv.Device.count()))
@@ -25,14 +26,14 @@ for i in range(drv.Device.count()):
     # We must use a lookup table based on compute capability.
     # See the following:
     # http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#compute-capabilities
-    cuda_cores_per_mp = {5.0: 128, 5.1: 128, 5.2: 128, 6.0: 64, 6.1: 128, 6.2: 128}[
-        compute_capability
-    ]
-    print(
-        "\t ({}) Multiprocessors, ({}) CUDA Cores / Multiprocessor: {} CUDA Cores".format(
-            num_mp, cuda_cores_per_mp, num_mp * cuda_cores_per_mp
-        )
-    )
+    # cuda_cores_per_mp = {5.0: 128, 5.1: 128, 5.2: 128, 6.0: 64, 6.1: 128, 6.2: 128}[
+    #     compute_capability
+    # ]
+    # print(
+    #     "\t ({}) Multiprocessors, ({}) CUDA Cores / Multiprocessor: {} CUDA Cores".format(
+    #         num_mp, cuda_cores_per_mp, num_mp * cuda_cores_per_mp
+    #     )
+    # )
 
     device_attributes.pop("MULTIPROCESSOR_COUNT")
     for k in device_attributes.keys():
