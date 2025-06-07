@@ -1,4 +1,4 @@
-PROJECT=$(gcloud config list project --format "value(core.project)")
+PROJECT=build-with-ai-project
 LOCATION=us-central1
 REPOSITORY_NAME=build-with-ai-docker-repo
 IMAGE_NAME="$LOCATION-docker.pkg.dev/${PROJECT}/$REPOSITORY_NAME/gprmaxui:v1"

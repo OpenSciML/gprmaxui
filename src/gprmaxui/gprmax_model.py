@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
 from PIL import Image
-from PySide6.QtWidgets import QApplication, QDialog
 from gprMax.gprMax import api
 from gprMax.utilities import round_value
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -422,6 +421,9 @@ class GprMaxModel:
         Returns:
             Union[None, Image.Image]: Image of the plot if return_image is True, otherwise None.
         """
+
+        from PySide6.QtWidgets import QApplication, QDialog
+
         self.run(clear_output_folder=False, geometry_only=True, n=1)
         geometry_file = self.output_folder / "geometry.vti"
 
@@ -756,6 +758,7 @@ class GprMaxModel:
             cmap (str): Colormap to use for the plots.
             figsize (tuple): Size of the figure.
         """
+
         # Write the PIL Images to the VideoWriter object.
         for i, curr_frame in enumerate(
                 self.animation_frame_generator(
