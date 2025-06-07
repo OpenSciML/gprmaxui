@@ -16,8 +16,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from tqdm import tqdm
 
 from gprmaxui.commands import *
-from src.gprmaxui.plotter import PlotterDialog
-from src.gprmaxui.utils import (
+from gprmaxui.plotter import PlotterDialog
+from gprmaxui.utils import (
     get_output_data,
     rmdir,
     merge_model_files,
