@@ -10,8 +10,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
 from PIL import Image
-from gprMax.gprMax import api
-from gprMax.utilities import round_value
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from tqdm import tqdm
 
@@ -23,6 +21,7 @@ from gprmaxui.utils import (
     merge_model_files,
     is_integer_num,
     figure2image,
+    round_value
 )
 
 logger = logging.getLogger("rich")
@@ -190,6 +189,13 @@ class GprMaxModel:
         Returns:
             GprMaxModel: The current instance of the GprMaxModel.
         """
+        try:
+            from gprMax.gprMax import api
+        except ImportError:
+            raise ImportError(
+                "gprMax installation not found. Please install gprMax following the instructions at https://docs.gprmax.com/en/latest/include_readme.html"
+            )
+
         nx, ny, nz = self._compute_num_cells()
         if nx == 0 or ny == 0 or nz == 0:
             raise Exception(" requires at least one cell in every dimension")
@@ -416,66 +422,62 @@ class GprMaxModel:
 
     def plot_geometry(self, **kwargs) -> Union[None, Image.Image]:
         """
-        Plot the model geometry.
+        Plot the model geometry using PyVista.
+
+        Args:
+            return_image (bool, optional): If True, returns a PIL image instead of showing an interactive window.
 
         Returns:
-            Union[None, Image.Image]: Image of the plot if return_image is True, otherwise None.
+            Union[None, Image.Image]: PIL Image if return_image is True, otherwise None.
         """
 
-        from PySide6.QtWidgets import QApplication, QDialog
-
+        # Run simulation to generate geometry file
         self.run(clear_output_folder=False, geometry_only=True, n=1)
         geometry_file = self.output_folder / "geometry.vti"
 
+        if not geometry_file.exists():
+            raise FileNotFoundError(f"Geometry file not found: {geometry_file}")
+
         return_image = kwargs.pop("return_image", False)
+
+        # Choose plotter mode
         if return_image:
             plotter = pv.Plotter(off_screen=True)
         else:
-            app = QApplication(sys.argv)
+            from PySide6.QtWidgets import QApplication, QDialog
+            app = QApplication.instance() or QApplication(sys.argv)
             plotter_dialog = PlotterDialog()
             plotter = plotter_dialog.plotter
 
-        plotter.set_background("white")
+        # Load and add geometry
         geometry_grid = pv.read(geometry_file)
+        plotter.set_background("white")
         plotter.add_mesh(
             geometry_grid, show_edges=False, opacity=0.3, show_scalar_bar=False
         )
 
-        source = self.source
-        tx = source.tx.source
-        rx = source.rx
-
-        tx_x, tx_y, tx_z = tx.x, tx.y, tx.z
-        rx_x, rx_y, rx_z = rx.x, rx.y, rx.z
-        plotter.add_mesh(
-            pv.Cube(
-                center=(tx_x, tx_y, tx_z),
-                x_length=self.domain_resolution.dx * 2,
-                y_length=self.domain_resolution.dx * 2,
-                z_length=self.domain_resolution.dx * 2,
-            ),
-            color="red",
-        )
+        # Add TX/RX cubes
+        dx = self.domain_resolution.dx * 2
+        tx = self.source.tx.source
+        rx = self.source.rx
 
         plotter.add_mesh(
-            pv.Cube(
-                center=(rx_x, rx_y, rx_z),
-                x_length=self.domain_resolution.dx * 2,
-                y_length=self.domain_resolution.dx * 2,
-                z_length=self.domain_resolution.dx * 2,
-            ),
-            color="blue",
+            pv.Cube(center=(tx.x, tx.y, tx.z), x_length=dx, y_length=dx, z_length=dx),
+            color="red"
+        )
+        plotter.add_mesh(
+            pv.Cube(center=(rx.x, rx.y, rx.z), x_length=dx, y_length=dx, z_length=dx),
+            color="blue"
         )
 
+        # Configure camera and plot
         plotter.camera_position = "xy"
         plotter.camera.tight()
         plotter.add_axes()
 
         if return_image:
-            plotter.camera.tight()
             image = plotter.screenshot(return_img=True)
-            image = Image.fromarray(image)
-            return image
+            return Image.fromarray(image)
         else:
             if plotter_dialog.exec() == QDialog.DialogCode.Rejected:
                 sys.exit(0)

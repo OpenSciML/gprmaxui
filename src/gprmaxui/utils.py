@@ -8,9 +8,8 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
-from gprMax._version import __version__
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-
+import decimal as d
 
 def rmdir(folder: Path) -> None:
     """
@@ -77,7 +76,7 @@ def is_integer_num(n: Union[int, float]) -> bool:
     return False
 
 
-def merge_model_files(output_folder: Path, output_file: Path) -> None:
+def merge_model_files(output_folder: Path, output_file: Path, gprMax_version: str = None) -> None:
     """
     Merge the output files from a simulation run into a single file.
 
@@ -85,6 +84,14 @@ def merge_model_files(output_folder: Path, output_file: Path) -> None:
         output_folder (Path): The folder containing the output files.
         output_file (Path): The path to the merged output file.
     """
+    if gprMax_version is None:
+        try:
+            from gprMax._version import __version__
+            gprMax_version = __version__
+        except ImportError:
+            raise ImportError("gprMax version could not be determined. Ensure gprMax is installed correctly.")
+
+
     out_files = list(output_folder.glob("*.out"))
     if len(out_files) == 0:
         raise ValueError(f"No output files found in {output_folder}")
@@ -98,7 +105,7 @@ def merge_model_files(output_folder: Path, output_file: Path) -> None:
 
             if model == 0:
                 fout.attrs["Title"] = fin.attrs["Title"]
-                fout.attrs["gprMax"] = __version__
+                fout.attrs["gprMax"] = gprMax_version
                 fout.attrs["Iterations"] = fin.attrs["Iterations"]
                 fout.attrs["dt"] = fin.attrs["dt"]
                 fout.attrs["nrx"] = fin.attrs["nrx"]
@@ -346,3 +353,25 @@ def figure2image(fig: plt.Figure) -> Image.Image:
     image = Image.fromarray(image_array)
     plt.close(fig)
     return image
+
+def round_value(value, decimalplaces=0):
+    """Rounding function.
+
+    Args:
+        value (float): Number to round.
+        decimalplaces (int): Number of decimal places of float to represent rounded value.
+
+    Returns:
+        rounded (int/float): Rounded value.
+    """
+
+    # Rounds to nearest integer (half values are rounded downwards)
+    if decimalplaces == 0:
+        rounded = int(d.Decimal(value).quantize(d.Decimal('1'), rounding=d.ROUND_HALF_DOWN))
+
+    # Rounds down to nearest float represented by number of decimal places
+    else:
+        precision = '1.{places}'.format(places='0' * decimalplaces)
+        rounded = float(d.Decimal(value).quantize(d.Decimal(precision), rounding=d.ROUND_FLOOR))
+
+    return rounded

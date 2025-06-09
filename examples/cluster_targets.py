@@ -97,18 +97,20 @@ if __name__ == "__main__":
         targets_radius=(0.005, 0.02),
     )
 
-    model.plot_geometry()
-    model.run(n="auto", geometry=True, snapshots=True, gpu=[0,1])
-    model.plot_data()
+    print(model)
 
-    captures = []
-    for i in range(1, 500, 80):
-        snapshot_image = model.plot_snapshot(
-            trace_idx=50, iteration_idx=i, return_image=True
-        )
-        captures.append(snapshot_image)
-    print(len(captures))
-    output_image = make_images_grid(captures, num_cols=4)
-    output_image.show()
-
-    model.save_video("test.mp4")
+    #model.plot_geometry()
+    # model.run(n="auto", geometry=True, snapshots=True, gpu=[0,1])
+    # model.plot_data()
+    #
+    # captures = []
+    # for i in range(1, 500, 80):
+    #     snapshot_image = model.plot_snapshot(
+    #         trace_idx=50, iteration_idx=i, return_image=True
+    #     )
+    #     captures.append(snapshot_image)
+    # print(len(captures))
+    # output_image = make_images_grid(captures, num_cols=4)
+    # output_image.show()
+    #
+    # model.save_video("test.mp4")

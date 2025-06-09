@@ -1,0 +1,1 @@
+docker run --rm -it --entrypoint bash us-central1-docker.pkg.dev/build-with-ai-project/build-with-ai-docker-repo/gprmaxui:v1
