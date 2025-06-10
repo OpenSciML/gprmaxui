@@ -1,8 +1,11 @@
+from __future__ import annotations
+
+import json
 import logging
 import sys
 from io import StringIO
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union, Optional
 
 import cv2
 import h5py
@@ -23,8 +26,34 @@ from gprmaxui.utils import (
     figure2image,
     round_value
 )
+from IPython import get_ipython
 
-logger = logging.getLogger("rich")
+logger = logging.getLogger(__name__)
+
+
+def in_notebook() -> bool:
+    """Check if running inside a Jupyter notebook."""
+    try:
+        shell = get_ipython().__class__.__name__
+        return shell == 'ZMQInteractiveShell'
+    except NameError:
+        return False
+
+class GprMaxModelSchema(BaseModel):
+    title: str
+    output_folder: Path
+    domain_size: DomainSize
+    domain_resolution: DomainResolution
+    time_window: TimeWindow
+    source: Optional[TxRxPair]
+    materials: List[Material]
+    geometry: List[Union[DomainBox, DomainCylinder, DomainSphere]]
+
+    class Config:
+        arbitrary_types_allowed = True
+        json_encoders = {
+            Path: lambda v: v.as_posix()
+        }
 
 
 class GprMaxModel:
@@ -430,8 +459,6 @@ class GprMaxModel:
         Returns:
             Union[None, Image.Image]: PIL Image if return_image is True, otherwise None.
         """
-
-        # Run simulation to generate geometry file
         self.run(clear_output_folder=False, geometry_only=True, n=1)
         geometry_file = self.output_folder / "geometry.vti"
 
@@ -439,10 +466,14 @@ class GprMaxModel:
             raise FileNotFoundError(f"Geometry file not found: {geometry_file}")
 
         return_image = kwargs.pop("return_image", False)
+        notebook_mode = in_notebook()
 
-        # Choose plotter mode
+        # Choose plotter
         if return_image:
             plotter = pv.Plotter(off_screen=True)
+        elif notebook_mode:
+            pv.set_jupyter_backend('trame')
+            plotter = pv.Plotter(notebook=True)
         else:
             from PySide6.QtWidgets import QApplication, QDialog
             app = QApplication.instance() or QApplication(sys.argv)
@@ -470,14 +501,17 @@ class GprMaxModel:
             color="blue"
         )
 
-        # Configure camera and plot
+        # Configure camera
         plotter.camera_position = "xy"
         plotter.camera.tight()
         plotter.add_axes()
 
+        # Show or return image
         if return_image:
             image = plotter.screenshot(return_img=True)
             return Image.fromarray(image)
+        elif notebook_mode:
+            return plotter.show()  # or 'panel'
         else:
             if plotter_dialog.exec() == QDialog.DialogCode.Rejected:
                 sys.exit(0)
@@ -603,7 +637,6 @@ class GprMaxModel:
         plt.tight_layout()
         plt.show()
 
-    import typing
 
     def animation_frame_generator(
             self, rx=1, rx_component: str = "Ez", cmap="jet", figsize=(10, 10)
@@ -776,3 +809,73 @@ class GprMaxModel:
                     raise Exception("Could not open video file for writing")
             vout.write(np.asarray(curr_frame))
         vout.release()
+
+    def to_json(self, path: Union[str, Path] = None, indent: int = 2) -> Union[str, None]:
+        """
+        Export the GprMaxModel to JSON format using Pydantic serialization.
+
+        Args:
+            path (str or Path): If provided, writes JSON to file.
+            indent (int): Indentation for pretty printing.
+
+        Returns:
+            str | None: JSON string if `path` is None, else None.
+        """
+        schema = GprMaxModelSchema(
+            title=self.title.title,
+            output_folder=self.output_folder,
+            domain_size=self.domain_size,
+            domain_resolution=self.domain_resolution,
+            time_window=self.time_window,
+            source=self.source,
+            materials=self.materials,
+            geometry=self.geometry
+        )
+
+        json_str = schema.model_dump_json(indent=indent)
+
+        if path:
+            Path(path).write_text(json_str)
+            return None
+        return json_str
+
+    @staticmethod
+    def from_json(data: Union[str, Path, dict]) -> GprMaxModel:
+        """
+        Load a GprMaxModel from a JSON file path, JSON string, or Python dictionary.
+
+        Args:
+            data (Union[str, Path, dict]): The path to a JSON file, a JSON string, or a parsed dict.
+
+        Returns:
+            GprMaxModel: The reconstructed model.
+        """
+        # Step 1: Load JSON data
+        if isinstance(data, Path) or (isinstance(data, str) and Path(data).exists()):
+            with open(data, "r") as f:
+                json_obj = json.load(f)
+        elif isinstance(data, str):
+            json_obj = json.loads(data)
+        elif isinstance(data, dict):
+            json_obj = data
+        else:
+            raise TypeError("Unsupported input type. Must be a path, JSON string, or dict.")
+
+        # Step 2: Validate with schema
+        schema = GprMaxModelSchema(**json_obj)
+
+        # Step 3: Build the actual model instance
+        model = GprMaxModel(
+            title=schema.title,
+            domain_size=schema.domain_size,
+            domain_resolution=schema.domain_resolution,
+            time_window=schema.time_window,
+            output_folder=schema.output_folder,
+        )
+        if schema.source:
+            model.set_source(schema.source)
+        model.register_materials(*schema.materials)
+        model.add_geometry(*schema.geometry)
+
+        return model
+

@@ -14,7 +14,7 @@ dependencies = [
     "psutil>=6.0.0",
     "pydantic>=2.9.2",
     "pyside6>=6.8.0.1",
-    "pyvista>=0.44.1",
+    "pyvista[all]>=0.44.1",
     "pyvistaqt>=0.11.1",
     "rich>=13.9.2",
     "scipy>=1.14.1",
@@ -54,6 +54,10 @@ exclude = [
 [project.optional-dependencies]
 gpu = [
     "pycuda>=2025.1",
+]
+demos = [
+    "notebook>=7.4.3",
+    "panel>=1.7.1",
 ]
 
 [tool.uv]
