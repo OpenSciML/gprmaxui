@@ -755,12 +755,8 @@ class GprMaxModel:
                 canvas = FigureCanvas(fig)
                 canvas.draw()
                 # Get the image data as a string buffer and save it to a file
-                image_buffer = canvas.tostring_rgb()
-                image_width, image_height = canvas.get_width_height()
-                # Create a PIL image from the string buffer
-                image_array = np.frombuffer(image_buffer, dtype=np.uint8).reshape(
-                    image_height, image_width, 3
-                )
+                image_array = np.asarray(canvas.buffer_rgba())[..., :3]
+                
                 data_capture = Image.fromarray(image_array)
                 yield data_capture
 
