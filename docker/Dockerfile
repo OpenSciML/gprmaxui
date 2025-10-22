@@ -12,12 +12,11 @@ RUN apt-get update && \
 
 # Upgrade pip and install PyCUDA
 RUN pip install --upgrade pip && \
-    pip install pycuda
+    pip install pycuda cython
 
 # Clone gprMax repository and install Python dependencies before building
 RUN git clone https://github.com/gprMax/gprMax.git && \
     cd gprMax && \
-    pip install --no-cache-dir -r requirements.txt && \
     python setup.py build && \
     python setup.py install
 

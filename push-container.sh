@@ -11,6 +11,7 @@ echo "Image Name: $IMAGE_NAME"
 #gcloud artifacts repositories create $REPOSITORY_NAME \
 #    --repository-format=docker \
 #    --location=$LOCATION
+echo $IMAGE_NAME
 #gcloud auth configure-docker $LOCATION-docker.pkg.dev
-docker build . -t $IMAGE_NAME --file ./docker/Dockerfile
-docker push $IMAGE_NAME
+#docker build . -t $IMAGE_NAME --file ./docker/Dockerfile
+#docker push $IMAGE_NAME
