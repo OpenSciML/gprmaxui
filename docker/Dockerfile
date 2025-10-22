@@ -11,4 +11,4 @@ RUN git clone https://github.com/gprMax/gprMax.git && \
     python setup.py build && \
     python setup.py install
 
-RUN pip install gprmaxui --upgrade
+RUN pip install gprmaxui --upgrade --force-reinstall --no-cache-dir
