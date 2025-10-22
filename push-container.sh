@@ -1,7 +1,7 @@
 PROJECT=build-with-ai-project
 LOCATION=us-central1
 REPOSITORY_NAME=build-with-ai-docker-repo
-IMAGE_NAME="$LOCATION-docker.pkg.dev/${PROJECT}/$REPOSITORY_NAME/gprmaxui:v1"
+IMAGE_NAME="$LOCATION-docker.pkg.dev/${PROJECT}/$REPOSITORY_NAME/gprmaxui:latest"
 
 echo "Project: $PROJECT"
 echo "Location: $LOCATION"
