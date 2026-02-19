@@ -203,3 +203,15 @@ class SnapshotView(Command):
     dz: float
     t: typing.Union[float, int]
     filename: str = None
+
+
+@CommandParser.register("geometry_objects_read")
+class GeometryObjectsRead(Command):
+    """
+    A dataclass representing the geometry_objects_read command.
+    """
+    x: float
+    y: float
+    z: float
+    filename: str
+    materials_filename: str

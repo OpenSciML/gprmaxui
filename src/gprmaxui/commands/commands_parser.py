@@ -147,6 +147,7 @@ class CommandParser:
         if cmd_name == "title":
             cmd_args = [match.group(2)]
 
-        cmd_fields = dict(zip(cmd_class.model_fields, [cmd_name] + cmd_args))
+        cmd_fields = dict(zip([k for k in cmd_class.model_fields if k != "name"], cmd_args))
+        cmd_fields["name"] = cmd_name
         cmd = cmd_class(**cmd_fields)
         return cmd

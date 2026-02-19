@@ -1,15 +1,18 @@
+
+import decimal as d
 import math
 import os
 import re
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import List, Union
+from typing import Optional, Tuple
 
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-import decimal as d
+
 
 def rmdir(folder: Path) -> None:
     """
@@ -375,3 +378,70 @@ def round_value(value, decimalplaces=0):
         rounded = float(d.Decimal(value).quantize(d.Decimal(precision), rounding=d.ROUND_FLOOR))
 
     return rounded
+
+
+def png2geometry(imagefile: Path, dxdydz: Tuple[float, float, float],
+                 physical_size: Optional[Tuple[float, float]] = None, scale: float = 1.0, zcells: int = 1) -> None:
+    """
+    Convert image to geometry.
+    Args:
+        imagefile (Path): Image file to convert.
+        dxdydz (Tuple[float, float, float]): Dxdydz parameter.
+        physical_size (Tuple[float, float]): Physical size parameter.
+        scale (float): Scale parameter.
+        zcells (int): Z cell size.
+
+    Returns:
+        None
+    """
+    img = Image.open(imagefile).convert("RGBA")
+
+    if physical_size:
+        target_w = int(physical_size[0] / dxdydz[0] * scale)
+        target_h = int(physical_size[1] / dxdydz[1] * scale)
+        print(f"Resizing image to: {target_w}x{target_h}")
+        img = img.resize((target_w, target_h), resample=Image.Resampling.NEAREST)
+    else:
+        target_w = int(img.width * scale)
+        target_h = int(img.height * scale)
+        if scale != 1.0:
+            print(f"Resizing image to: {target_w}x{target_h}")
+            img = img.resize((target_w, target_h), resample=Image.Resampling.NEAREST)
+
+    imdata = np.asarray(img)  # (H, W, 4), uint8
+    imdata = np.floor(imdata * 255).astype(np.int16)
+    imdata = np.rot90(imdata, k=3)  # Rotate 90CW
+
+    h, w, _ = imdata.shape
+
+    fig = plt.figure(facecolor='w', edgecolor='w')
+    im = np.flipud(imdata)  # Flip image for viewing with origin in lower left
+    # rotate the image back for viewing
+    im = np.rot90(im, k=3)
+    plt.imshow(im, interpolation='nearest', aspect='equal', origin='lower')
+    plt.show()
+
+    alpha = imdata[:, :, 3]
+    visible_mask = alpha > 0  # (H, W) boolean
+
+    # plot visible mask
+    fig = plt.figure(facecolor='w', edgecolor='w')
+    im = np.flipud(visible_mask)  # Flip image for viewing with origin in lower left
+    # rotate the image back for viewing
+    im = np.rot90(im, k=3)
+    plt.imshow(im, interpolation='nearest', aspect='equal', origin='lower')
+    plt.show()
+
+    hdf5file = imagefile.with_suffix(".h5")
+    # Array to store geometry data (initialised as background, i.e. -1)
+    data = np.ones((h, w, zcells), dtype=np.int16) * -1
+    # Write geometry (HDF5) file
+    with h5py.File(hdf5file, 'w') as fout:
+        # Add attribute with name 'dx_dy_dz' for spatial resolution
+        fout.attrs['dx_dy_dz'] = dxdydz
+        # Use a boolean mask to match selected pixel values with position in image
+        data[visible_mask, :] = 0
+        # Write data to file
+        fout.create_dataset('data', data=data)
+
+    print(f"Written HDF5 file: {hdf5file}")

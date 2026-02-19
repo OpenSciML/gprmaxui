@@ -26,7 +26,6 @@ from gprmaxui.utils import (
     figure2image,
     round_value
 )
-from IPython import get_ipython
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +33,12 @@ logger = logging.getLogger(__name__)
 def in_notebook() -> bool:
     """Check if running inside a Jupyter notebook."""
     try:
+        from IPython import get_ipython
+        if get_ipython() is None:
+            return False
         shell = get_ipython().__class__.__name__
         return shell == 'ZMQInteractiveShell'
-    except NameError:
+    except (ImportError, NameError):
         return False
 
 class GprMaxModelSchema(BaseModel):
@@ -376,7 +378,7 @@ class GprMaxModel:
         for material in args:
             self.materials.append(material)
 
-    def add_geometry(self, *args: Union[DomainSphere, DomainCylinder, DomainBox]) -> None:
+    def add_geometry(self, *args: Union[DomainSphere, DomainCylinder, DomainBox, GeometryObjectsRead]) -> None:
         """
         Register geometries to the GprMax model.
 
@@ -384,7 +386,7 @@ class GprMaxModel:
             *args (Union[DomainSphere, DomainCylinder, DomainBox]): Geometries to register.
         """
         assert all(
-            isinstance(geometry, (DomainSphere, DomainCylinder, DomainBox))
+            isinstance(geometry, (DomainSphere, DomainCylinder, DomainBox, GeometryObjectsRead))
             for geometry in args
         ), "All geometries must be instances of the Geometry class."
         for geometry in args:
@@ -874,4 +876,3 @@ class GprMaxModel:
         model.add_geometry(*schema.geometry)
 
         return model
-
