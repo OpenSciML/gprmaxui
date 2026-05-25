@@ -105,3 +105,28 @@ print(model)
 model.run(n="auto", geometry=True, snapshots=True)
 
 ```
+
+For larger B-scans and videos, reduce snapshot output and parallelize the frame
+synthesis:
+
+```Python
+model.run(
+    n="auto",
+    geometry=True,
+    snapshots=True,
+    snapshot_stride=10,
+    num_threads=8,
+    mpi="auto",
+    gpu=[0, 1],
+    geometry_fixed=True,
+)
+
+model.save_video(
+    "test.mp4",
+    fps=25,
+    figsize=(6, 10),
+    cmap="jet",
+    frame_step=10,
+    workers="auto",
+)
+```

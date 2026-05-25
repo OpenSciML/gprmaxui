@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import math
 import json
 import logging
+import os
 import sys
+import tempfile
+import typing
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
 from typing import Dict, List, Tuple, Union, Optional
@@ -24,22 +30,211 @@ from gprmaxui.utils import (
     merge_model_files,
     is_integer_num,
     figure2image,
-    round_value
+    round_value,
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class VideoFrameTask:
+    frame_index: int
+    trace_idx: int
+    iteration_idx: int
+    output_folder: str
+    snapshot_file: str
+    geometry_file: str
+    data_file: str
+    frame_path: str
+    dt: float
+    dx: float
+    tx_x: float
+    tx_y: float
+    tx_z: float
+    rx_x: float
+    rx_y: float
+    rx_z: float
+    rx_component: str
+    cmap: str
+    figsize: Tuple[float, float]
+
+
+def _capture_stdout(callback) -> str:
+    original_stdout = sys.stdout
+    string_out = StringIO()
+    try:
+        sys.stdout = string_out
+        callback()
+    finally:
+        sys.stdout = original_stdout
+    return string_out.getvalue()
+
+
+def _physical_cpu_count() -> int:
+    try:
+        import psutil
+
+        count = psutil.cpu_count(logical=False)
+    except Exception:
+        count = os.cpu_count()
+    return count or 1
+
+
+def _gpu_count(gpu) -> int:
+    if gpu is None:
+        return 0
+    if isinstance(gpu, (list, tuple, set)):
+        return len(gpu)
+    return 1
+
+
+def _resolve_mpi_tasks(mpi, gpu, n_traces: int):
+    if mpi == "auto":
+        gpu_tasks = _gpu_count(gpu)
+        worker_count = gpu_tasks if gpu_tasks > 1 else _physical_cpu_count()
+        return max(1, min(n_traces + 1, worker_count + 1))
+    if mpi is True:
+        return max(1, min(n_traces + 1, _physical_cpu_count() + 1))
+    return mpi
+
+
+def _validate_positive_int(value, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError(f"{name} must be a positive integer")
+    return value
+
+
+def _resolve_frame_workers(workers, task_count: int) -> int:
+    if task_count < 1:
+        return 1
+    if workers == "auto":
+        return max(1, min(task_count, max(1, (os.cpu_count() or 1) - 1), 4))
+    if workers is None:
+        return 1
+    return _validate_positive_int(workers, "workers")
+
+
+def _video_frame_indices(
+    n_traces: int, n_iterations: int, frame_step: int
+) -> List[Tuple[int, int, int]]:
+    frame_index = 0
+    frame_indices = []
+    for trace_idx in range(n_traces):
+        for iteration_idx in range(0, n_iterations, frame_step):
+            frame_indices.append((frame_index, trace_idx, iteration_idx))
+            frame_index += 1
+    return frame_indices
+
+
+def _render_video_frame(task: VideoFrameTask) -> Tuple[int, str]:
+    outputdata = np.load(task.data_file, mmap_mode="r")
+
+    fig, axes = plt.subplots(2, 1, figsize=task.figsize)
+    plotter = pv.Plotter(off_screen=True)
+    try:
+        plotter.set_background("white")
+        plotter.camera_position = "xy"
+        plotter.add_axes()
+
+        snapshot_grid = pv.read(task.snapshot_file)
+        plotter.add_mesh(
+            snapshot_grid,
+            cmap=task.cmap,
+            scalars="H-field",
+            show_edges=False,
+            show_scalar_bar=False,
+        )
+
+        geometry_grid = pv.read(task.geometry_file)
+        plotter.add_mesh(
+            geometry_grid, show_edges=False, show_scalar_bar=False, opacity=0.5
+        )
+
+        plotter.add_mesh(
+            pv.Cube(
+                center=(
+                    task.tx_x + (task.trace_idx * task.dx),
+                    task.tx_y,
+                    task.tx_z,
+                ),
+                x_length=task.dx * 2,
+                y_length=task.dx * 2,
+                z_length=task.dx * 2,
+            ),
+            color="red",
+        )
+
+        plotter.add_mesh(
+            pv.Cube(
+                center=(
+                    task.rx_x + (task.trace_idx * task.dx),
+                    task.tx_y,
+                    task.tx_z,
+                ),
+                x_length=task.dx * 2,
+                y_length=task.dx * 2,
+                z_length=task.dx * 2,
+            ),
+            color="blue",
+        )
+        plotter.camera.tight()
+        snapshot_capture = Image.fromarray(plotter.screenshot(return_img=True))
+
+        ax = axes[0]
+        ax.imshow(snapshot_capture, aspect="auto")
+        ax.set_xlabel("Trace")
+        ax.set_ylabel("Time")
+        ax.set_title(
+            f"{task.rx_component} Snapshot at trace {task.trace_idx + 1} "
+            f"and iteration {task.iteration_idx + 1}"
+        )
+
+        new_arr = np.full_like(outputdata, fill_value=np.nan)
+        new_arr[:, : task.trace_idx] = outputdata[:, : task.trace_idx]
+        new_arr[: task.iteration_idx, task.trace_idx] = outputdata[
+            : task.iteration_idx, task.trace_idx
+        ]
+        new_arr_shape = new_arr.shape
+
+        masked_array = np.ma.array(new_arr, mask=np.isnan(new_arr))
+        frame_cmap = plt.cm.get_cmap(task.cmap).copy()
+        frame_cmap.set_bad(color="white")
+
+        ax = axes[1]
+        ax.imshow(
+            masked_array,
+            extent=[0, new_arr_shape[1], new_arr_shape[0] * task.dt, 0],
+            interpolation="nearest",
+            aspect="auto",
+            cmap=frame_cmap,
+        )
+        ax.set_xlabel("Trace")
+        ax.set_ylabel("Time")
+        ax.set_title(f"{task.rx_component} B-scan")
+        plt.tight_layout()
+        canvas = FigureCanvas(fig)
+        canvas.draw()
+        image_array = np.asarray(canvas.buffer_rgba())[..., :3]
+        Image.fromarray(image_array).save(task.frame_path)
+    finally:
+        plt.close(fig)
+        plotter.close()
+
+    return task.frame_index, task.frame_path
 
 
 def in_notebook() -> bool:
     """Check if running inside a Jupyter notebook."""
     try:
         from IPython import get_ipython
+
         if get_ipython() is None:
             return False
         shell = get_ipython().__class__.__name__
-        return shell == 'ZMQInteractiveShell'
+        return shell == "ZMQInteractiveShell"
     except (ImportError, NameError):
         return False
+
 
 class GprMaxModelSchema(BaseModel):
     title: str
@@ -53,9 +248,7 @@ class GprMaxModelSchema(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
-        json_encoders = {
-            Path: lambda v: v.as_posix()
-        }
+        json_encoders = {Path: lambda v: v.as_posix()}
 
 
 class GprMaxModel:
@@ -213,7 +406,7 @@ class GprMaxModel:
         nz = round_value(self.domain_size.z / dz)
         return nx, ny, nz
 
-    def run(self, *args, **kwargs) -> 'GprMaxModel':
+    def run(self, *args, **kwargs) -> "GprMaxModel":
         """
         Run the simulation.
 
@@ -245,26 +438,51 @@ class GprMaxModel:
 
         out_geometry = kwargs.pop("geometry", False)
         out_snapshots = kwargs.pop("snapshots", False)
+        snapshot_stride = _validate_positive_int(
+            kwargs.pop("snapshot_stride", 1), "snapshot_stride"
+        )
+        num_threads = kwargs.pop("num_threads", None)
+        if num_threads is not None:
+            num_threads = _validate_positive_int(num_threads, "num_threads")
+        mpi = _resolve_mpi_tasks(kwargs.pop("mpi", False), kwargs.get("gpu"), n_traces)
+        mpi_no_spawn = kwargs.pop("mpi_no_spawn", False)
+        gpu = kwargs.pop("gpu", None)
+        geometry_fixed = kwargs.pop("geometry_fixed", False)
         geometry_only = kwargs.get("geometry_only", False)
 
         # create output folder
         clear_output_folder = kwargs.pop("clear_output_folder", True)
         self._mkdir_output_folder(clear_output_folder)
 
-        string_out = StringIO()
-        sys.stdout = string_out
+        input_prefix = ""
+        if num_threads is not None:
+            input_prefix = f"{NumThreads(n=num_threads)}\n"
+
         out_geometry = out_geometry or geometry_only
+        output_commands = ""
         if any([out_geometry, out_snapshots]):
-            self._print_outputs(geometry=out_geometry, snapshots=out_snapshots)
-        sys.stdout = sys.__stdout__
+            output_commands = _capture_stdout(
+                lambda: self._print_outputs(
+                    geometry=out_geometry,
+                    snapshots=out_snapshots,
+                    snapshot_stride=snapshot_stride,
+                )
+            )
 
         # Write the input file
         model_file = self.output_folder / "sim.in"
         with open(model_file, "w") as f:
-            f.write(str(self) + string_out.getvalue())
+            f.write(input_prefix + str(self) + output_commands)
 
         # Run the simulation
-        api(str(model_file), n=n_traces, *args, **kwargs)
+        api_kwargs = {
+            "mpi": mpi,
+            "mpi_no_spawn": mpi_no_spawn,
+            "gpu": gpu,
+            "geometry_fixed": geometry_fixed,
+            **kwargs,
+        }
+        api(str(model_file), *args, n=n_traces, **api_kwargs)
 
         # generated output file
         output_file = self.output_folder / "output_merged.out"
@@ -273,14 +491,21 @@ class GprMaxModel:
 
         return self
 
-    def _print_outputs(self, geometry: bool = True, snapshots: bool = True) -> None:
+    def _print_outputs(
+        self,
+        geometry: bool = True,
+        snapshots: bool = True,
+        snapshot_stride: int = 1,
+    ) -> None:
         """
         Print the outputs.
 
         Args:
             geometry (bool): Whether to print geometry outputs.
             snapshots (bool): Whether to print snapshot outputs.
+            snapshot_stride (int): Iteration interval between snapshot outputs.
         """
+        snapshot_stride = _validate_positive_int(snapshot_stride, "snapshot_stride")
         if geometry:
             GeometryView(
                 x_min=0,
@@ -298,7 +523,7 @@ class GprMaxModel:
 
             if snapshots:
                 iterations = self._compute_n_iterations()
-                for i in range(1, iterations):
+                for i in range(1, iterations, snapshot_stride):
                     SnapshotView(
                         x_min=0,
                         y_min=0,
@@ -378,7 +603,9 @@ class GprMaxModel:
         for material in args:
             self.materials.append(material)
 
-    def add_geometry(self, *args: Union[DomainSphere, DomainCylinder, DomainBox, GeometryObjectsRead]) -> None:
+    def add_geometry(
+        self, *args: Union[DomainSphere, DomainCylinder, DomainBox, GeometryObjectsRead]
+    ) -> None:
         """
         Register geometries to the GprMax model.
 
@@ -386,7 +613,9 @@ class GprMaxModel:
             *args (Union[DomainSphere, DomainCylinder, DomainBox]): Geometries to register.
         """
         assert all(
-            isinstance(geometry, (DomainSphere, DomainCylinder, DomainBox, GeometryObjectsRead))
+            isinstance(
+                geometry, (DomainSphere, DomainCylinder, DomainBox, GeometryObjectsRead)
+            )
             for geometry in args
         ), "All geometries must be instances of the Geometry class."
         for geometry in args:
@@ -474,10 +703,11 @@ class GprMaxModel:
         if return_image:
             plotter = pv.Plotter(off_screen=True)
         elif notebook_mode:
-            pv.set_jupyter_backend('trame')
+            pv.set_jupyter_backend("trame")
             plotter = pv.Plotter(notebook=True)
         else:
             from PySide6.QtWidgets import QApplication, QDialog
+
             app = QApplication.instance() or QApplication(sys.argv)
             plotter_dialog = PlotterDialog()
             plotter = plotter_dialog.plotter
@@ -496,11 +726,11 @@ class GprMaxModel:
 
         plotter.add_mesh(
             pv.Cube(center=(tx.x, tx.y, tx.z), x_length=dx, y_length=dx, z_length=dx),
-            color="red"
+            color="red",
         )
         plotter.add_mesh(
             pv.Cube(center=(rx.x, rx.y, rx.z), x_length=dx, y_length=dx, z_length=dx),
-            color="blue"
+            color="blue",
         )
 
         # Configure camera
@@ -639,9 +869,99 @@ class GprMaxModel:
         plt.tight_layout()
         plt.show()
 
+    def _resolve_geometry_file_for_trace(self, trace_idx: int) -> Path:
+        geometry_file = self.output_folder.joinpath(f"geometry{trace_idx + 1}.vti")
+        if geometry_file.exists():
+            return geometry_file
+
+        fixed_geometry_file = self.output_folder.joinpath("geometry1.vti")
+        if fixed_geometry_file.exists():
+            return fixed_geometry_file
+
+        single_geometry_file = self.output_folder.joinpath("geometry.vti")
+        if single_geometry_file.exists():
+            return single_geometry_file
+
+        return geometry_file
+
+    def _build_video_frame_tasks(
+        self,
+        outputdata: np.ndarray,
+        dt: float,
+        rx_component: str,
+        cmap: str,
+        figsize: Tuple[float, float],
+        frame_step: int,
+        temp_path: Path,
+        data_file: Path,
+    ) -> List[VideoFrameTask]:
+        n_iterations, n_traces = outputdata.shape
+        source = self.source
+        tx = source.tx.source
+        rx = source.rx
+        tasks = []
+
+        for frame_index, trace_idx, iteration_idx in _video_frame_indices(
+            n_traces, n_iterations, frame_step
+        ):
+            snapshot_file = self.output_folder.joinpath(
+                f"sim_snaps{trace_idx + 1}",
+                f"snapshot{iteration_idx + 1}.vti",
+            )
+            frame_path = temp_path.joinpath(f"frame_{frame_index:08d}.png")
+            tasks.append(
+                VideoFrameTask(
+                    frame_index=frame_index,
+                    trace_idx=trace_idx,
+                    iteration_idx=iteration_idx,
+                    output_folder=str(self.output_folder),
+                    snapshot_file=str(snapshot_file),
+                    geometry_file=str(self._resolve_geometry_file_for_trace(trace_idx)),
+                    data_file=str(data_file),
+                    frame_path=str(frame_path),
+                    dt=float(dt),
+                    dx=float(self.domain_resolution.dx),
+                    tx_x=float(tx.x),
+                    tx_y=float(tx.y),
+                    tx_z=float(tx.z),
+                    rx_x=float(rx.x),
+                    rx_y=float(rx.y),
+                    rx_z=float(rx.z),
+                    rx_component=rx_component,
+                    cmap=cmap,
+                    figsize=figsize,
+                )
+            )
+
+        return tasks
+
+    def _validate_video_frame_inputs(
+        self, tasks: List[VideoFrameTask], frame_step: int
+    ) -> None:
+        missing = []
+        required_files = {
+            path for task in tasks for path in (task.snapshot_file, task.geometry_file)
+        }
+        for filename in sorted(required_files):
+            if not Path(filename).exists():
+                missing.append(filename)
+
+        if not missing:
+            return
+
+        examples = "\n".join(f"  - {filename}" for filename in missing[:10])
+        remaining = len(missing) - min(len(missing), 10)
+        if remaining:
+            examples += f"\n  - ... and {remaining} more"
+        raise FileNotFoundError(
+            "Missing snapshot or geometry files required to render the video.\n"
+            f"Run model.run(..., geometry=True, snapshots=True, snapshot_stride={frame_step}) "
+            "before save_video(), or choose a frame_step that matches existing snapshots.\n"
+            f"Missing files:\n{examples}"
+        )
 
     def animation_frame_generator(
-            self, rx=1, rx_component: str = "Ez", cmap="jet", figsize=(10, 10)
+        self, rx=1, rx_component: str = "Ez", cmap="jet", figsize=(10, 10)
     ):
         """
         Generate frames for the animation of the model simulation.
@@ -670,8 +990,12 @@ class GprMaxModel:
             for iteration_idx in range(0, n_iterations, 10):
                 fig, axes = plt.subplots(2, 1, figsize=figsize)
 
-                snapshot_folder = self.output_folder.joinpath(f"sim_snaps{trace_idx + 1}")
-                snapshot_file = snapshot_folder.joinpath(f"snapshot{iteration_idx + 1}.vti")
+                snapshot_folder = self.output_folder.joinpath(
+                    f"sim_snaps{trace_idx + 1}"
+                )
+                snapshot_file = snapshot_folder.joinpath(
+                    f"snapshot{iteration_idx + 1}.vti"
+                )
                 snapshot_grid = pv.read(snapshot_file)
                 plotter.add_mesh(
                     snapshot_grid,
@@ -681,7 +1005,9 @@ class GprMaxModel:
                     show_scalar_bar=False,
                 )
 
-                geometry_file = self.output_folder.joinpath(f"geometry{trace_idx + 1}.vti")
+                geometry_file = self.output_folder.joinpath(
+                    f"geometry{trace_idx + 1}.vti"
+                )
                 geometry_grid = pv.read(geometry_file)
                 plotter.add_mesh(
                     geometry_grid, show_edges=False, show_scalar_bar=False, opacity=0.5
@@ -734,7 +1060,9 @@ class GprMaxModel:
                 # make B-scan plot
                 new_arr = np.full_like(outputdata, fill_value=np.nan)
                 new_arr[:, :trace_idx] = outputdata[:, :trace_idx]
-                new_arr[:iteration_idx, trace_idx] = outputdata[:iteration_idx, trace_idx]
+                new_arr[:iteration_idx, trace_idx] = outputdata[
+                    :iteration_idx, trace_idx
+                ]
                 new_arr_shape = new_arr.shape
 
                 # Create a mask
@@ -758,7 +1086,7 @@ class GprMaxModel:
                 canvas.draw()
                 # Get the image data as a string buffer and save it to a file
                 image_array = np.asarray(canvas.buffer_rgba())[..., :3]
-                
+
                 data_capture = Image.fromarray(image_array)
                 yield data_capture
 
@@ -772,13 +1100,16 @@ class GprMaxModel:
         plotter.close()
 
     def save_video(
-            self,
-            output_file: typing.Union[str, Path] = "model.mp4",
-            fps=180,
-            rx=1,
-            rx_component: str = "Ez",
-            cmap="jet",
-            figsize=(10, 10),
+        self,
+        output_file: typing.Union[str, Path] = "model.mp4",
+        fps=180,
+        rx=1,
+        rx_component: str = "Ez",
+        cmap="jet",
+        figsize=(10, 10),
+        frame_step: int = 10,
+        workers: typing.Union[int, str, None] = "auto",
+        temp_dir: typing.Union[str, Path, None] = None,
     ):
         """
         Save the model simulation as a video.
@@ -790,25 +1121,82 @@ class GprMaxModel:
             rx_component (str): Receiver component to plot.
             cmap (str): Colormap to use for the plots.
             figsize (tuple): Size of the figure.
+            frame_step (int): Iteration interval between rendered frames.
+            workers (int | str | None): Number of parallel render workers. Use "auto" to choose a conservative default.
+            temp_dir (str | Path | None): Parent directory for temporary rendered frame files.
         """
+        frame_step = _validate_positive_int(frame_step, "frame_step")
+        data = self.data(rx=rx)
+        assert rx_component in data.keys(), f"Invalid rx component {rx_component}"
+        outputdata, dt = data[rx_component]
 
-        # Write the PIL Images to the VideoWriter object.
-        for i, curr_frame in enumerate(
-                self.animation_frame_generator(
-                    rx=rx, rx_component=rx_component, cmap=cmap, figsize=figsize
-                )
-        ):
-            if i == 0:
-                cap_size = curr_frame.size
-                fourcc = cv2.VideoWriter_fourcc("m", "p", "4", "v")  # note the lower case
-                vout = cv2.VideoWriter()
-                success = vout.open(output_file, fourcc, fps, cap_size, True)
-                if not success:
-                    raise Exception("Could not open video file for writing")
-            vout.write(np.asarray(curr_frame))
-        vout.release()
+        temp_dir_path = Path(temp_dir) if temp_dir is not None else None
+        if temp_dir_path is not None:
+            temp_dir_path.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=temp_dir_path) as working_dir:
+            working_path = Path(working_dir)
+            data_file = working_path.joinpath("outputdata.npy")
+            np.save(data_file, outputdata)
 
-    def to_json(self, path: Union[str, Path] = None, indent: int = 2) -> Union[str, None]:
+            tasks = self._build_video_frame_tasks(
+                outputdata=outputdata,
+                dt=dt,
+                rx_component=rx_component,
+                cmap=cmap,
+                figsize=figsize,
+                frame_step=frame_step,
+                temp_path=working_path,
+                data_file=data_file,
+            )
+            if not tasks:
+                raise ValueError("No frames were generated for the requested video")
+
+            self._validate_video_frame_inputs(tasks, frame_step)
+            worker_count = _resolve_frame_workers(workers, len(tasks))
+            output_file = str(output_file)
+            vout = None
+
+            try:
+                if worker_count == 1:
+                    rendered_frames = map(_render_video_frame, tasks)
+                    iterator = tqdm(rendered_frames, total=len(tasks))
+                else:
+                    executor = ProcessPoolExecutor(max_workers=worker_count)
+                    rendered_frames = executor.map(_render_video_frame, tasks)
+                    iterator = tqdm(rendered_frames, total=len(tasks))
+
+                try:
+                    for expected_index, (frame_index, frame_path) in enumerate(
+                        iterator
+                    ):
+                        if frame_index != expected_index:
+                            raise RuntimeError(
+                                f"Rendered frame order mismatch: expected {expected_index}, got {frame_index}"
+                            )
+                        with Image.open(frame_path) as curr_frame:
+                            curr_frame = curr_frame.convert("RGB")
+                            if vout is None:
+                                cap_size = curr_frame.size
+                                fourcc = cv2.VideoWriter_fourcc("m", "p", "4", "v")
+                                vout = cv2.VideoWriter()
+                                success = vout.open(
+                                    output_file, fourcc, fps, cap_size, True
+                                )
+                                if not success:
+                                    raise Exception(
+                                        "Could not open video file for writing"
+                                    )
+                            vout.write(np.asarray(curr_frame))
+                finally:
+                    if worker_count != 1:
+                        executor.shutdown(wait=True, cancel_futures=True)
+            finally:
+                if vout is not None:
+                    vout.release()
+
+    def to_json(
+        self, path: Union[str, Path] = None, indent: int = 2
+    ) -> Union[str, None]:
         """
         Export the GprMaxModel to JSON format using Pydantic serialization.
 
@@ -827,7 +1215,7 @@ class GprMaxModel:
             time_window=self.time_window,
             source=self.source,
             materials=self.materials,
-            geometry=self.geometry
+            geometry=self.geometry,
         )
 
         json_str = schema.model_dump_json(indent=indent)
@@ -857,7 +1245,9 @@ class GprMaxModel:
         elif isinstance(data, dict):
             json_obj = data
         else:
-            raise TypeError("Unsupported input type. Must be a path, JSON string, or dict.")
+            raise TypeError(
+                "Unsupported input type. Must be a path, JSON string, or dict."
+            )
 
         # Step 2: Validate with schema
         schema = GprMaxModelSchema(**json_obj)
