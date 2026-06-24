@@ -41,6 +41,14 @@ class TimeWindow(Command):
     twt: typing.Union[float, int]
 
 
+@CommandParser.register("num_threads")
+class NumThreads(Command):
+    """
+    A dataclass representing the OpenMP thread-count command.
+    """
+
+    n: int
+
 
 @CommandParser.register("title")
 class Title(Command):
